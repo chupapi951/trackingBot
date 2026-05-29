@@ -59,41 +59,45 @@ router.get('/:id', async (req, res) => {
  * Create a new tracker.
  */
 router.post('/', async (req, res) => {
-  const { title, price, priceCurrency, deliveryPrice, deliveryPriceType, deliveryCurrency, weight, stages } = req.body;
+  try {
+    const { title, price, priceCurrency, deliveryPrice, deliveryPriceType, deliveryCurrency, weight, stages } = req.body;
 
-  if (!title || !title.trim()) {
-    return res.status(400).json({ error: 'Title is required' });
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const cleanStages = Array.isArray(stages)
+      ? stages
+          .filter((s) => s && s.title && s.title.trim())
+          .map((s) => ({
+            title: s.title.trim(),
+            description: s.description?.trim() || '',
+            date: s.date ? new Date(s.date) : null,
+            completed: Boolean(s.completed),
+            photos: [],
+          }))
+      : [];
+
+    const tracker = await Tracker.create({
+      owner: req.user._id,
+      title: title.trim(),
+      price: Number(price) || 0,
+      priceCurrency: priceCurrency || '₽',
+      deliveryPrice:
+        deliveryPrice === '' || deliveryPrice == null
+          ? null
+          : Number(deliveryPrice),
+      deliveryPriceType: deliveryPriceType || 'total',
+      deliveryCurrency: deliveryCurrency || '₽',
+      weight: weight != null ? Number(weight) : null,
+      stages: cleanStages,
+      followers: [req.user._id],
+    });
+
+    res.status(201).json(decorate(tracker, req.user));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
-
-  const cleanStages = Array.isArray(stages)
-    ? stages
-        .filter((s) => s && s.title && s.title.trim())
-        .map((s) => ({
-          title: s.title.trim(),
-          description: s.description?.trim() || '',
-          date: s.date ? new Date(s.date) : null,
-          completed: Boolean(s.completed),
-          photos: [],
-        }))
-    : [];
-
-  const tracker = await Tracker.create({
-    owner: req.user._id,
-    title: title.trim(),
-    price: Number(price) || 0,
-    priceCurrency: priceCurrency || '₽',
-    deliveryPrice:
-      deliveryPrice === '' || deliveryPrice == null
-        ? null
-        : Number(deliveryPrice),
-    deliveryPriceType: deliveryPriceType || 'total',
-    deliveryCurrency: deliveryCurrency || '₽',
-    weight: weight != null ? Number(weight) : null,
-    stages: cleanStages,
-    followers: [req.user._id],
-  });
-
-  res.status(201).json(decorate(tracker, req.user));
 });
 
 /**
@@ -101,6 +105,7 @@ router.post('/', async (req, res) => {
  * Update tracker details (owner only).
  */
 router.put('/:id', async (req, res) => {
+  try {
   const tracker = await Tracker.findById(req.params.id);
   if (!tracker) return res.status(404).json({ error: 'Not found' });
   if (!isOwner(tracker, req.user))
@@ -143,6 +148,9 @@ router.put('/:id', async (req, res) => {
 
   await tracker.save();
   res.json(decorate(tracker, req.user));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /**

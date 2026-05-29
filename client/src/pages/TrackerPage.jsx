@@ -5,7 +5,7 @@ import { formatPriceWithSeparatedCurrencies } from '../lib/format.js';
 import { haptic, showAlert } from '../lib/telegram.js';
 import { showToast } from '../lib/toast.js';
 import StageItem from '../components/StageItem.jsx';
-import { BackIcon, TrashIcon, EditIcon } from '../components/Icons.jsx';
+import { BackIcon, TrashIcon, EditIcon, PlusIcon } from '../components/Icons.jsx';
 import AuthImg from '../components/AuthImg.jsx';
 
 const CURRENCIES = ['₽', '$', '€', '¥', '₸', '₴', '₺', 'kr'];
