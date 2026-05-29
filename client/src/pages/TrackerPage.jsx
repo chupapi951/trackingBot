@@ -15,6 +15,8 @@ export default function TrackerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxPhotos, setLightboxPhotos] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const [codeRevealed, setCodeRevealed] = useState(false);
 
@@ -32,6 +34,25 @@ export default function TrackerPage() {
   useEffect(() => {
     load();
   }, [id]);
+
+  useEffect(() => {
+    if (!lightboxSrc) return;
+    const handler = (e) => {
+      if (e.key === 'ArrowLeft') {
+        const newIdx = (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
+        setLightboxIndex(newIdx);
+        setLightboxSrc(lightboxPhotos[newIdx]);
+      } else if (e.key === 'ArrowRight') {
+        const newIdx = (lightboxIndex + 1) % lightboxPhotos.length;
+        setLightboxIndex(newIdx);
+        setLightboxSrc(lightboxPhotos[newIdx]);
+      } else if (e.key === 'Escape') {
+        setLightboxSrc(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxSrc, lightboxIndex, lightboxPhotos]);
 
   async function handleToggleComplete(stageId) {
     const stage = tracker.stages.find((s) => String(s._id) === String(stageId));
@@ -169,7 +190,11 @@ export default function TrackerPage() {
             onToggleComplete={handleToggleComplete}
             onAddPhoto={handleAddPhoto}
             onDeletePhoto={handleDeletePhoto}
-            onOpenPhoto={setLightboxSrc}
+            onOpenPhoto={(url, photos) => {
+              setLightboxPhotos(photos);
+              setLightboxIndex(photos.indexOf(url));
+              setLightboxSrc(url);
+            }}
             defaultOpen={i === 0}
           />
         ))
@@ -207,11 +232,46 @@ export default function TrackerPage() {
 
       {lightboxSrc && (
         <div className="lightbox" onClick={() => setLightboxSrc(null)}>
-          <AuthImg
-            src={lightboxSrc}
-            alt=""
-            onClick={(e) => e.stopPropagation()}
-          />
+          <button
+            className="lightbox-close"
+            onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
+          >
+            ×
+          </button>
+          {lightboxPhotos.length > 1 && (
+            <>
+              <span className="lightbox-counter">{lightboxIndex + 1} / {lightboxPhotos.length}</span>
+              <button
+                className="lightbox-nav prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const newIdx = (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
+                  setLightboxIndex(newIdx);
+                  setLightboxSrc(lightboxPhotos[newIdx]);
+                }}
+              >
+                ‹
+              </button>
+              <button
+                className="lightbox-nav next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const newIdx = (lightboxIndex + 1) % lightboxPhotos.length;
+                  setLightboxIndex(newIdx);
+                  setLightboxSrc(lightboxPhotos[newIdx]);
+                }}
+              >
+                ›
+              </button>
+            </>
+          )}
+          <div className="lightbox-img-wrap" onClick={(e) => e.stopPropagation()}>
+            <AuthImg
+              src={lightboxSrc}
+              alt=""
+              onClick={() => {}}
+            />
+          </div>
         </div>
       )}
     </div>

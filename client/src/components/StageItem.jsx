@@ -15,7 +15,7 @@ import AuthImg from './AuthImg.jsx';
  *  - onToggleComplete(stageId)
  *  - onAddPhoto(stageId, file)
  *  - onDeletePhoto(stageId, photoId)
- *  - onOpenPhoto(url)
+ *  - onOpenPhoto(url, photos)
  *  - defaultOpen
  */
 export default function StageItem({
@@ -71,7 +71,7 @@ export default function StageItem({
                   <AuthImg
                     src={p.url}
                     alt=""
-                    onClick={() => onOpenPhoto?.(p.url)}
+                    onClick={() => onOpenPhoto?.(p.url, photos)}
                   />
                   {canManage && onDeletePhoto && (
                     <button
