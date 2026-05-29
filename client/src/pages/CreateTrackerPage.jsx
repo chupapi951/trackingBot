@@ -11,7 +11,6 @@ const newStage = () => ({
   _tmp: ++tempId,
   title: '',
   description: '',
-  date: '',
   completed: false,
   photos: [],
 });
@@ -55,7 +54,6 @@ export default function CreateTrackerPage() {
         stages: validStages.map((s) => ({
           title: s.title.trim(),
           description: s.description.trim(),
-          date: s.date || null,
           completed: s.completed,
         })),
       });
@@ -150,17 +148,7 @@ export default function CreateTrackerPage() {
               }
             />
           </div>
-          <div className="row">
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>Дата изменения</label>
-              <input
-                className="input"
-                type="date"
-                value={s.date}
-                onChange={(e) => updateStage(idx, { date: e.target.value })}
-              />
-            </div>
-            <div
+          <div
               className="field"
               style={{ marginBottom: 0, display: 'flex', alignItems: 'flex-end' }}
             >
@@ -184,7 +172,6 @@ export default function CreateTrackerPage() {
                 Завершён
               </label>
             </div>
-          </div>
         </div>
       ))}
 
