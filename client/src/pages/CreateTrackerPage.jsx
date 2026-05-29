@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { formatPrice } from '../lib/format.js';
+import { formatPriceWithSeparatedCurrencies } from '../lib/format.js';
 import { haptic, showAlert } from '../lib/telegram.js';
 import { showToast } from '../lib/toast.js';
 import StageItem from '../components/StageItem.jsx';
@@ -22,10 +22,11 @@ export default function CreateTrackerPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
+  const [priceCurrency, setPriceCurrency] = useState('₽');
   const [deliveryPrice, setDeliveryPrice] = useState('');
   const [deliveryPriceType, setDeliveryPriceType] = useState('total');
+  const [deliveryCurrency, setDeliveryCurrency] = useState('₽');
   const [weight, setWeight] = useState('');
-  const [currency, setCurrency] = useState('₽');
   const [stages, setStages] = useState([newStage()]);
   const [saving, setSaving] = useState(false);
 
@@ -130,10 +131,11 @@ export default function CreateTrackerPage() {
       const tracker = await api.createTracker({
         title: title.trim(),
         price: Number(price) || 0,
+        priceCurrency,
         deliveryPrice: deliveryPrice === '' ? null : Number(deliveryPrice),
         deliveryPriceType,
+        deliveryCurrency,
         weight: weight === '' ? null : Number(weight),
-        currency,
         stages: validStages.map((s) => ({
           title: s.title.trim(),
           description: s.description.trim(),
@@ -195,8 +197,8 @@ export default function CreateTrackerPage() {
           />
           <select
             className="input"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            value={priceCurrency}
+            onChange={(e) => setPriceCurrency(e.target.value)}
             style={{ width: 72, flexShrink: 0 }}
           >
             {CURRENCIES.map((c) => (
@@ -225,7 +227,7 @@ export default function CreateTrackerPage() {
             За кг
           </button>
         </div>
-        <div className="row">
+        <div style={{ display: 'flex', gap: 8 }}>
           <input
             className="input"
             type="number"
@@ -233,18 +235,30 @@ export default function CreateTrackerPage() {
             placeholder={deliveryPriceType === 'perKg' ? 'Цена за кг' : 'Стоимость'}
             value={deliveryPrice}
             onChange={(e) => setDeliveryPrice(e.target.value)}
+            style={{ flex: 1 }}
           />
-          {deliveryPriceType === 'perKg' && (
-            <input
-              className="input"
-              type="number"
-              inputMode="decimal"
-              placeholder="Вес (кг)"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-            />
-          )}
+          <select
+            className="input"
+            value={deliveryCurrency}
+            onChange={(e) => setDeliveryCurrency(e.target.value)}
+            style={{ width: 72, flexShrink: 0 }}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
+        {deliveryPriceType === 'perKg' && (
+          <input
+            className="input"
+            type="number"
+            inputMode="decimal"
+            placeholder="Вес (кг)"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            style={{ marginTop: 8 }}
+          />
+        )}
       </div>
 
       <div className="section-label">Этапы</div>
@@ -314,7 +328,7 @@ export default function CreateTrackerPage() {
           </strong>
           {(Number(price) > 0 || Number(deliveryPrice) > 0) && (
             <span style={{ fontSize: 14, color: 'var(--tg-text)' }}>
-              {formatPrice(price, deliveryPrice, deliveryPriceType, weight, currency)}
+              {formatPriceWithSeparatedCurrencies(price, priceCurrency, deliveryPrice, deliveryPriceType, weight, deliveryCurrency)}
             </span>
           )}
         </div>

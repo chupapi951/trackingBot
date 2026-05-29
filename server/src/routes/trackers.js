@@ -81,12 +81,13 @@ router.post('/', async (req, res) => {
     owner: req.user._id,
     title: title.trim(),
     price: Number(price) || 0,
+    priceCurrency: priceCurrency || '₽',
     deliveryPrice:
       deliveryPrice === '' || deliveryPrice == null
         ? null
         : Number(deliveryPrice),
     deliveryPriceType: deliveryPriceType || 'total',
-    currency: currency || '₽',
+    deliveryCurrency: deliveryCurrency || '₽',
     weight: weight != null ? Number(weight) : null,
     stages: cleanStages,
     followers: [req.user._id],
@@ -105,17 +106,18 @@ router.put('/:id', async (req, res) => {
   if (!isOwner(tracker, req.user))
     return res.status(403).json({ error: 'Only owner can edit' });
 
-  const { title, price, deliveryPrice, deliveryPriceType, currency, weight, stages } = req.body;
+  const { title, price, priceCurrency, deliveryPrice, deliveryPriceType, deliveryCurrency, weight, stages } = req.body;
 
   if (title !== undefined) tracker.title = String(title).trim();
   if (price !== undefined) tracker.price = Number(price) || 0;
+  if (priceCurrency !== undefined) tracker.priceCurrency = priceCurrency;
   if (deliveryPrice !== undefined)
     tracker.deliveryPrice =
       deliveryPrice === '' || deliveryPrice == null
         ? null
         : Number(deliveryPrice);
   if (deliveryPriceType !== undefined) tracker.deliveryPriceType = deliveryPriceType;
-  if (currency !== undefined) tracker.currency = currency;
+  if (deliveryCurrency !== undefined) tracker.deliveryCurrency = deliveryCurrency;
   if (weight !== undefined)
     tracker.weight = weight === '' || weight == null ? null : Number(weight);
 

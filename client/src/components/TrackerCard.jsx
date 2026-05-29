@@ -26,14 +26,14 @@ export default function TrackerCard({ tracker }) {
       <div className="list-meta" style={{ marginTop: 0 }}>
         <strong style={{ fontSize: 15 }}>{tracker.title}</strong>
         <div style={{ textAlign: 'right' }}>
-          <div className="tracker-price">{formatMoney(tracker.price || 0, tracker.currency)}</div>
+          <div className="tracker-price">{formatMoney(tracker.price || 0, tracker.priceCurrency || '₽')}</div>
           {hasDelivery && (
             <div className="hint" style={{ fontSize: 11, marginTop: 1 }}>
               + {formatMoney(
                 tracker.deliveryPriceType === 'perKg'
                   ? (tracker.deliveryPrice || 0) * (tracker.weight || 1)
                   : (tracker.deliveryPrice || 0),
-                tracker.currency
+                tracker.deliveryCurrency || '₽'
               )} доставка
             </div>
           )}
