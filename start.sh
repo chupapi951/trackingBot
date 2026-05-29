@@ -1,2 +1,3 @@
 #!/bin/bash
-cd /app/server && node src/index.js
+cd /app && npm install --prefix server
+node /app/server/src/index.js
