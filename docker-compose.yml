@@ -6,17 +6,11 @@ services:
       context: .
       dockerfile: Dockerfile.server
     restart: unless-stopped
-    ports:
-      - "4000:4000"
+    network_mode: host
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_URI=mongodb://127.0.0.1:27017/tracking_bot
       - PORT=4000
       - BOT_TOKEN=${BOT_TOKEN}
-      - DEV_AUTH=false
+      - DEV_AUTH=${DEV_AUTH}
       - PUBLIC_URL=${PUBLIC_URL}
-    volumes:
-      - uploads:/app/uploads
-
-volumes:
-  uploads:
