@@ -19,7 +19,27 @@ export default function TrackerPage() {
   const [lightboxPhotos, setLightboxPhotos] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const [codeRevealed, setCodeRevealed] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [deliveryPriceInput, setDeliveryPriceInput] = useState('');
   const touchStartX = useRef(null);
+
+  function openEditDelivery() {
+    setDeliveryPriceInput(tracker.deliveryPrice != null ? String(tracker.deliveryPrice) : '');
+    setEditingPrice(true);
+  }
+
+  async function saveDeliveryPrice() {
+    haptic('light');
+    try {
+      const updated = await api.updateTracker(id, {
+        deliveryPrice: deliveryPriceInput === '' ? null : Number(deliveryPriceInput),
+      });
+      setTracker(updated);
+      setEditingPrice(false);
+    } catch (e) {
+      showAlert(e.message);
+    }
+  }
 
   async function load() {
     try {
@@ -141,10 +161,34 @@ export default function TrackerPage() {
       <div className="card" style={{ marginTop: 8 }}>
         <div className="list-meta" style={{ marginTop: 0 }}>
           <strong style={{ fontSize: 17 }}>{tracker.title}</strong>
-          <span className="tracker-price">{formatMoney(total, tracker.currency)}</span>
+          {editingPrice ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                className="input"
+                type="number"
+                inputMode="decimal"
+                placeholder="Доставка"
+                value={deliveryPriceInput}
+                onChange={(e) => setDeliveryPriceInput(e.target.value)}
+                style={{ width: 80, padding: '6px 10px', fontSize: 14 }}
+                autoFocus
+              />
+              <button className="btn small" onClick={saveDeliveryPrice} style={{ padding: '6px 12px' }}>✓</button>
+              <button className="btn small secondary" onClick={() => setEditingPrice(false)} style={{ padding: '6px 12px' }}>✕</button>
+            </div>
+          ) : (
+            <span
+              className="tracker-price"
+              onClick={tracker.isOwner ? openEditDelivery : undefined}
+              style={{ cursor: tracker.isOwner ? 'pointer' : 'default' }}
+              title={tracker.isOwner ? 'Нажмите для редактирования' : undefined}
+            >
+              {formatMoney(total, tracker.currency)}
+            </span>
+          )}
         </div>
 
-<div className="list-meta">
+        <div className="list-meta">
           <span className="hint">
             {doneCount} / {stages.length} этапов завершено
           </span>
