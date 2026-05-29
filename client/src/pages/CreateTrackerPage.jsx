@@ -150,18 +150,10 @@ export default function CreateTrackerPage() {
           </div>
           <div
               className="field"
-              style={{ marginBottom: 0, display: 'flex', alignItems: 'flex-end' }}
+              style={{ marginBottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
             >
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  margin: 0,
-                  cursor: 'pointer',
-                  paddingBottom: 12,
-                }}
-              >
+              <span style={{ fontSize: 14, color: 'var(--tg-text)' }}>Завершён</span>
+              <label className="toggle">
                 <input
                   type="checkbox"
                   checked={s.completed}
@@ -169,7 +161,7 @@ export default function CreateTrackerPage() {
                     updateStage(idx, { completed: e.target.checked })
                   }
                 />
-                Завершён
+                <span className="toggle-slider" />
               </label>
             </div>
         </div>
