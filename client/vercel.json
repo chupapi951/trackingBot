@@ -2,11 +2,5 @@
   "buildCommand": "cd client && npm install && npx vite build",
   "outputDirectory": "client/dist",
   "installCommand": "npm install",
-  "devCommand": "npm run dev",
-  "env": {
-    "VITE_API_URL": {
-      "description": "Backend API URL on VPS",
-      "value": "https://trakers.duckdns.org"
-    }
-  }
+  "devCommand": "npm run dev"
 }
