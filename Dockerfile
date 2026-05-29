@@ -3,10 +3,10 @@ FROM node:20
 WORKDIR /app
 
 COPY package*.json ./
-COPY server ./server
+COPY server/package*.json ./server/
 COPY start.js ./
 
-RUN npm install
+RUN npm install && cd server && npm install
 
 EXPOSE 4000
 
