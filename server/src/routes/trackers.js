@@ -59,7 +59,7 @@ router.get('/:id', async (req, res) => {
  * Create a new tracker.
  */
 router.post('/', async (req, res) => {
-  const { title, price, deliveryPrice, deliveryPriceType, currency, weight, stages } = req.body;
+  const { title, price, priceCurrency, deliveryPrice, deliveryPriceType, deliveryCurrency, weight, stages } = req.body;
 
   if (!title || !title.trim()) {
     return res.status(400).json({ error: 'Title is required' });

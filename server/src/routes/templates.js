@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
  * Create a new template.
  */
 router.post('/', async (req, res) => {
-  const { name, currency, deliveryPriceType, stages } = req.body;
+  const { name, priceCurrency, deliveryCurrency, deliveryPriceType, stages } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Название шаблона обязательно' });
   }
@@ -35,7 +35,8 @@ router.post('/', async (req, res) => {
   const template = await Template.create({
     owner: req.user._id,
     name: name.trim(),
-    currency: currency || '₽',
+    priceCurrency: priceCurrency || '₽',
+    deliveryCurrency: deliveryCurrency || '₽',
     deliveryPriceType: deliveryPriceType || 'total',
     stages: cleanStages,
   });
@@ -54,9 +55,10 @@ router.put('/:id', async (req, res) => {
     return res.status(403).json({ error: 'Нет доступа' });
   }
 
-  const { name, currency, deliveryPriceType, stages } = req.body;
+  const { name, priceCurrency, deliveryCurrency, deliveryPriceType, stages } = req.body;
   if (name !== undefined) template.name = String(name).trim();
-  if (currency !== undefined) template.currency = currency;
+  if (priceCurrency !== undefined) template.priceCurrency = priceCurrency;
+  if (deliveryCurrency !== undefined) template.deliveryCurrency = deliveryCurrency;
   if (deliveryPriceType !== undefined) template.deliveryPriceType = deliveryPriceType;
   if (Array.isArray(stages)) {
     template.stages = stages

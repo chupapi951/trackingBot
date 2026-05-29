@@ -46,7 +46,8 @@ export default function CreateTrackerPage() {
 
   function applyTemplate(tpl) {
     haptic('medium');
-    setCurrency(tpl.currency || '₽');
+    setPriceCurrency(tpl.priceCurrency || tpl.currency || '₽');
+    setDeliveryCurrency(tpl.deliveryCurrency || tpl.currency || '₽');
     setDeliveryPriceType(tpl.deliveryPriceType || 'total');
     setDeliveryPrice('');
     setWeight('');
@@ -73,7 +74,8 @@ export default function CreateTrackerPage() {
       const validStages = stages.filter((s) => s.title.trim());
       const tpl = await api.createTemplate({
         name: templateName.trim(),
-        currency,
+        priceCurrency,
+        deliveryCurrency,
         deliveryPriceType,
         stages: validStages.map((s) => ({
           title: s.title.trim(),
@@ -386,8 +388,9 @@ export default function CreateTrackerPage() {
                         <div>
                           <strong style={{ fontSize: 14 }}>{tpl.name}</strong>
                           <div className="hint" style={{ marginTop: 2 }}>
-                            {tpl.stages?.length || 0} эт. · {tpl.currency}
-                            {tpl.deliveryPriceType === 'perKg' ? ' · доставка за кг' : ''}
+                            {tpl.stages?.length || 0} эт. · {tpl.priceCurrency || '₽'}
+                            {tpl.deliveryCurrency && tpl.deliveryCurrency !== (tpl.priceCurrency || '₽') ? ` / ${tpl.deliveryCurrency}` : ''}
+                            {tpl.deliveryPriceType === 'perKg' ? ' · за кг' : ''}
                           </div>
                         </div>
                         <button
