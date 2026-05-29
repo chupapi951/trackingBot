@@ -23,6 +23,23 @@ export function useTheme() {
     localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (!tg) return;
+
+    tg.ready();
+
+    const handleThemeChange = () => {
+      const newTheme = tg.colorScheme;
+      if (newTheme === 'dark' || newTheme === 'light') {
+        setThemeState(newTheme);
+      }
+    };
+
+    tg.onEvent('themeChanged', handleThemeChange);
+    return () => tg.offEvent('themeChanged', handleThemeChange);
+  }, []);
+
   const toggleTheme = useCallback(() => {
     setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
   }, []);
