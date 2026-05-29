@@ -14,20 +14,23 @@ function authHeaders() {
   return headers;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 async function request(method, path, body, isForm = false) {
   const headers = authHeaders();
   const opts = { method, headers };
 
   if (body != null) {
     if (isForm) {
-      opts.body = body; // FormData; let the browser set the content-type
+      opts.body = body;
     } else {
       headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
   }
 
-  const res = await fetch(`/api${path}`, opts);
+  const url = API_URL ? `${API_URL}/api${path}` : `/api${path}`;
+  const res = await fetch(url, opts);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.error || `Request failed (${res.status})`);
