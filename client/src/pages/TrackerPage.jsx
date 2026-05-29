@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { formatMoney, formatDate } from '../lib/format.js';
+import { formatMoney, formatPrice } from '../lib/format.js';
 import { haptic, showAlert } from '../lib/telegram.js';
 import { showToast } from '../lib/toast.js';
 import StageItem from '../components/StageItem.jsx';
@@ -147,7 +147,6 @@ export default function TrackerPage() {
 
   if (!tracker) return null;
 
-  const total = (tracker.price || 0) + (tracker.deliveryPrice || 0);
   const stages = tracker.stages || [];
   const doneCount = stages.filter((s) => s.completed).length;
   const progress = stages.length ? (doneCount / stages.length) * 100 : 0;
@@ -162,7 +161,7 @@ export default function TrackerPage() {
         <div className="list-meta" style={{ marginTop: 0 }}>
           <strong style={{ fontSize: 17 }}>{tracker.title}</strong>
           {editingPrice ? (
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
               <input
                 className="input"
                 type="number"
@@ -173,17 +172,36 @@ export default function TrackerPage() {
                 style={{ width: 80, padding: '6px 10px', fontSize: 14 }}
                 autoFocus
               />
+              <select
+                className="input"
+                value={tracker.deliveryPriceType || 'total'}
+                onChange={async (e) => {
+                  try {
+                    const updated = await api.updateTracker(id, { deliveryPriceType: e.target.value });
+                    setTracker(updated);
+                  } catch (err) { showAlert(err.message); }
+                }}
+                style={{ width: 80, padding: '6px 8px', fontSize: 14 }}
+              >
+                <option value="total">Итого</option>
+                <option value="perKg">За кг</option>
+              </select>
               <button className="btn small" onClick={saveDeliveryPrice} style={{ padding: '6px 12px' }}>✓</button>
               <button className="btn small secondary" onClick={() => setEditingPrice(false)} style={{ padding: '6px 12px' }}>✕</button>
             </div>
           ) : (
             <span
-              className="tracker-price"
               onClick={tracker.isOwner ? openEditDelivery : undefined}
-              style={{ cursor: tracker.isOwner ? 'pointer' : 'default' }}
+              style={{ cursor: tracker.isOwner ? 'pointer' : 'default', fontSize: 14 }}
               title={tracker.isOwner ? 'Нажмите для редактирования' : undefined}
             >
-              {formatMoney(total, tracker.currency)}
+              {formatPrice(
+                tracker.price,
+                tracker.deliveryPrice,
+                tracker.deliveryPriceType,
+                tracker.weight,
+                tracker.currency
+              )}
             </span>
           )}
         </div>

@@ -3,6 +3,23 @@ export function formatMoney(amount, currency = '₽') {
   return `${n.toLocaleString('ru-RU')} ${currency}`;
 }
 
+export function formatPrice(price, deliveryPrice, deliveryPriceType, weight, currency = '₽') {
+  const p = Number(price) || 0;
+  const d = Number(deliveryPrice) || 0;
+  const parts = [`${p.toLocaleString('ru-RU')} ${currency}`];
+  if (d > 0) {
+    if (deliveryPriceType === 'perKg') {
+      const w = Number(weight) || 0;
+      const total = w > 0 ? d * w : d;
+      parts.push(`+ ${d} ${currency}/кг`);
+      if (w > 0) parts[parts.length - 1] += ` (×${w} = ${total.toLocaleString('ru-RU')} ${currency})`;
+    } else {
+      parts.push(`+ ${d.toLocaleString('ru-RU')} ${currency}`);
+    }
+  }
+  return parts.join(' ');
+}
+
 export function formatDate(date) {
   if (!date) return '';
   const d = new Date(date);
