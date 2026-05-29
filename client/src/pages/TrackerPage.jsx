@@ -192,7 +192,7 @@ export default function TrackerPage() {
             onAddPhoto={handleAddPhoto}
             onDeletePhoto={handleDeletePhoto}
             onOpenPhoto={(url, photos) => {
-              setLightboxPhotos(photos);
+              setLightboxPhotos(photos.map(p => p.url));
               setLightboxIndex(photos.findIndex(p => p.url === url));
               setLightboxSrc(url);
             }}
