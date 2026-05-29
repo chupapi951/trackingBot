@@ -15,7 +15,7 @@
     "mongoose": "^8.9.5",
     "multer": "^1.4.5-lts.1",
     "nanoid": "^5.0.9",
-    "tracking-bot": "file:.."
+    "tracking-bot"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
