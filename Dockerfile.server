@@ -1,0 +1,23 @@
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY server/package*.json ./
+RUN npm ci --omit=dev
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY server ./
+
+RUN addgroup -g 1001 -S app && adduser -S app -u 1001
+
+USER app
+
+EXPOSE 4000
+
+CMD ["node", "src/index.js"]

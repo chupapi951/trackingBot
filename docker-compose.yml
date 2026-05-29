@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=${MONGODB_URI}
+      - PORT=4000
+      - BOT_TOKEN=${BOT_TOKEN}
+      - DEV_AUTH=false
+      - PUBLIC_URL=${PUBLIC_URL}
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  uploads:
