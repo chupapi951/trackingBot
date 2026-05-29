@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { formatMoney, formatDate } from '../lib/format.js';
@@ -19,6 +19,7 @@ export default function TrackerPage() {
   const [lightboxPhotos, setLightboxPhotos] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const [codeRevealed, setCodeRevealed] = useState(false);
+  const touchStartX = useRef(null);
 
   async function load() {
     try {
@@ -192,7 +193,7 @@ export default function TrackerPage() {
             onDeletePhoto={handleDeletePhoto}
             onOpenPhoto={(url, photos) => {
               setLightboxPhotos(photos);
-              setLightboxIndex(photos.indexOf(url));
+              setLightboxIndex(photos.findIndex(p => p.url === url));
               setLightboxSrc(url);
             }}
             defaultOpen={i === 0}
@@ -231,7 +232,29 @@ export default function TrackerPage() {
       )}
 
       {lightboxSrc && (
-        <div className="lightbox" onClick={() => setLightboxSrc(null)}>
+        <div
+          className="lightbox"
+          onClick={() => setLightboxSrc(null)}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchMove={(e) => {
+            if (touchStartX.current === null || lightboxPhotos.length <= 1) return;
+            const dx = e.touches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 50) {
+              if (dx < 0) {
+                const newIdx = (lightboxIndex + 1) % lightboxPhotos.length;
+                setLightboxIndex(newIdx);
+                setLightboxSrc(lightboxPhotos[newIdx]);
+              } else {
+                const newIdx = (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
+                setLightboxIndex(newIdx);
+                setLightboxSrc(lightboxPhotos[newIdx]);
+              }
+              touchStartX.current = null;
+              haptic('light');
+            }
+          }}
+          onTouchEnd={() => { touchStartX.current = null; }}
+        >
           <button
             className="lightbox-close"
             onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
