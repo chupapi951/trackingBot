@@ -72,4 +72,9 @@ export const api = {
 
   deletePhoto: (id, stageId, photoId) =>
     request('DELETE', `/trackers/${id}/stages/${stageId}/photos/${photoId}`),
+
+  getTemplates: () => request('GET', '/templates'),
+  createTemplate: (payload) => request('POST', '/templates', payload),
+  updateTemplate: (id, payload) => request('PUT', `/templates/${id}`, payload),
+  deleteTemplate: (id) => request('DELETE', `/templates/${id}`),
 };

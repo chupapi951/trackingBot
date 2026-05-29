@@ -9,6 +9,7 @@ import { authMiddleware } from './middleware/auth.js';
 import trackersRouter from './routes/trackers.js';
 import profileRouter from './routes/profile.js';
 import uploadsRouter from './routes/uploads.js';
+import templatesRouter from './routes/templates.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api', authMiddleware);
 app.use('/api/trackers', trackersRouter);
 app.use('/api/profile', profileRouter);
+app.use('/api/templates', templatesRouter);
 
 // Protected uploads — sits under /api so authMiddleware runs first
 app.use('/api/uploads', uploadsRouter);

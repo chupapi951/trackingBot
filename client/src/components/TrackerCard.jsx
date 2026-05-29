@@ -13,6 +13,7 @@ export default function TrackerCard({ tracker }) {
   const progress = stages.length ? (done / stages.length) * 100 : 0;
 
   const ownerInfo = tracker.ownerInfo;
+  const hasDelivery = tracker.deliveryPrice != null && tracker.deliveryPrice > 0;
 
   return (
     <div
@@ -24,7 +25,19 @@ export default function TrackerCard({ tracker }) {
     >
       <div className="list-meta" style={{ marginTop: 0 }}>
         <strong style={{ fontSize: 15 }}>{tracker.title}</strong>
-        <span className="tracker-price">{formatMoney(total, tracker.currency)}</span>
+        <div style={{ textAlign: 'right' }}>
+          <div className="tracker-price">{formatMoney(tracker.price || 0, tracker.currency)}</div>
+          {hasDelivery && (
+            <div className="hint" style={{ fontSize: 11, marginTop: 1 }}>
+              + {formatMoney(
+                tracker.deliveryPriceType === 'perKg'
+                  ? (tracker.deliveryPrice || 0) * (tracker.weight || 1)
+                  : (tracker.deliveryPrice || 0),
+                tracker.currency
+              )} доставка
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="list-meta">

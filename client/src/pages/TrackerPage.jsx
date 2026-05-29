@@ -8,36 +8,57 @@ import StageItem from '../components/StageItem.jsx';
 import { BackIcon, TrashIcon } from '../components/Icons.jsx';
 import AuthImg from '../components/AuthImg.jsx';
 
+const CURRENCIES = ['₽', '$', '€', '¥', '₸', '₴', '₺', 'kr'];
+
 export default function TrackerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [tracker, setTracker] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [lightboxSrc, setLightboxSrc] = useState(null);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   const [lightboxPhotos, setLightboxPhotos] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const [codeRevealed, setCodeRevealed] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
   const [deliveryPriceInput, setDeliveryPriceInput] = useState('');
+  const [deliveryTypeInput, setDeliveryTypeInput] = useState('total');
+  const [weightInput, setWeightInput] = useState('');
+  const [currencyInput, setCurrencyInput] = useState('₽');
+  const [savingPrice, setSavingPrice] = useState(false);
+  // Lightbox zoom/pan
+  const [zoomed, setZoomed] = useState(false);
   const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
-  function openEditDelivery() {
+  function openEditPrice() {
+    setPriceInput(tracker.price != null ? String(tracker.price) : '0');
     setDeliveryPriceInput(tracker.deliveryPrice != null ? String(tracker.deliveryPrice) : '');
+    setDeliveryTypeInput(tracker.deliveryPriceType || 'total');
+    setWeightInput(tracker.weight != null ? String(tracker.weight) : '');
+    setCurrencyInput(tracker.currency || '₽');
     setEditingPrice(true);
   }
 
-  async function saveDeliveryPrice() {
+  async function savePrice() {
     haptic('light');
+    setSavingPrice(true);
     try {
       const updated = await api.updateTracker(id, {
+        price: Number(priceInput) || 0,
         deliveryPrice: deliveryPriceInput === '' ? null : Number(deliveryPriceInput),
+        deliveryPriceType: deliveryTypeInput,
+        weight: weightInput === '' ? null : Number(weightInput),
+        currency: currencyInput,
       });
       setTracker(updated);
       setEditingPrice(false);
+      showToast('Цена обновлена');
     } catch (e) {
       showAlert(e.message);
+    } finally {
+      setSavingPrice(false);
     }
   }
 
@@ -56,24 +77,24 @@ export default function TrackerPage() {
     load();
   }, [id]);
 
+  // Keyboard navigation for lightbox
   useEffect(() => {
-    if (!lightboxSrc) return;
+    if (lightboxIndex === null) return;
     const handler = (e) => {
       if (e.key === 'ArrowLeft') {
-        const newIdx = (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
-        setLightboxIndex(newIdx);
-        setLightboxSrc(lightboxPhotos[newIdx]);
+        setLightboxIndex((i) => (i - 1 + lightboxPhotos.length) % lightboxPhotos.length);
+        setZoomed(false);
       } else if (e.key === 'ArrowRight') {
-        const newIdx = (lightboxIndex + 1) % lightboxPhotos.length;
-        setLightboxIndex(newIdx);
-        setLightboxSrc(lightboxPhotos[newIdx]);
+        setLightboxIndex((i) => (i + 1) % lightboxPhotos.length);
+        setZoomed(false);
       } else if (e.key === 'Escape') {
-        setLightboxSrc(null);
+        setLightboxIndex(null);
+        setZoomed(false);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [lightboxSrc, lightboxIndex, lightboxPhotos]);
+  }, [lightboxIndex, lightboxPhotos.length]);
 
   async function handleToggleComplete(stageId) {
     const stage = tracker.stages.find((s) => String(s._id) === String(stageId));
@@ -150,6 +171,7 @@ export default function TrackerPage() {
   const stages = tracker.stages || [];
   const doneCount = stages.filter((s) => s.completed).length;
   const progress = stages.length ? (doneCount / stages.length) * 100 : 0;
+  const lightboxSrc = lightboxIndex !== null ? lightboxPhotos[lightboxIndex] : null;
 
   return (
     <div className="page">
@@ -160,38 +182,9 @@ export default function TrackerPage() {
       <div className="card" style={{ marginTop: 8 }}>
         <div className="list-meta" style={{ marginTop: 0 }}>
           <strong style={{ fontSize: 17 }}>{tracker.title}</strong>
-          {editingPrice ? (
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input
-                className="input"
-                type="number"
-                inputMode="decimal"
-                placeholder="Доставка"
-                value={deliveryPriceInput}
-                onChange={(e) => setDeliveryPriceInput(e.target.value)}
-                style={{ width: 80, padding: '6px 10px', fontSize: 14 }}
-                autoFocus
-              />
-              <select
-                className="input"
-                value={tracker.deliveryPriceType || 'total'}
-                onChange={async (e) => {
-                  try {
-                    const updated = await api.updateTracker(id, { deliveryPriceType: e.target.value });
-                    setTracker(updated);
-                  } catch (err) { showAlert(err.message); }
-                }}
-                style={{ width: 80, padding: '6px 8px', fontSize: 14 }}
-              >
-                <option value="total">Итого</option>
-                <option value="perKg">За кг</option>
-              </select>
-              <button className="btn small" onClick={saveDeliveryPrice} style={{ padding: '6px 12px' }}>✓</button>
-              <button className="btn small secondary" onClick={() => setEditingPrice(false)} style={{ padding: '6px 12px' }}>✕</button>
-            </div>
-          ) : (
+          {!editingPrice && (
             <span
-              onClick={tracker.isOwner ? openEditDelivery : undefined}
+              onClick={tracker.isOwner ? openEditPrice : undefined}
               style={{ cursor: tracker.isOwner ? 'pointer' : 'default', fontSize: 14 }}
               title={tracker.isOwner ? 'Нажмите для редактирования' : undefined}
             >
@@ -205,6 +198,103 @@ export default function TrackerPage() {
             </span>
           )}
         </div>
+
+        {editingPrice && (
+          <div className="price-editor" style={{ marginTop: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginBottom: 8 }}>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Цена</label>
+                <input
+                  className="input"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Валюта</label>
+                <select
+                  className="input"
+                  value={currencyInput}
+                  onChange={(e) => setCurrencyInput(e.target.value)}
+                  style={{ width: 72 }}
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="field" style={{ marginBottom: 8 }}>
+              <label>Тип доставки</label>
+              <div className="filter-chips" style={{ marginBottom: 0 }}>
+                <button
+                  type="button"
+                  className={`chip ${deliveryTypeInput === 'total' ? 'active' : ''}`}
+                  onClick={() => { haptic('light'); setDeliveryTypeInput('total'); }}
+                >
+                  Итого
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${deliveryTypeInput === 'perKg' ? 'active' : ''}`}
+                  onClick={() => { haptic('light'); setDeliveryTypeInput('perKg'); }}
+                >
+                  За кг
+                </button>
+              </div>
+            </div>
+
+            <div className="row" style={{ marginBottom: 12 }}>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Доставка</label>
+                <input
+                  className="input"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder={deliveryTypeInput === 'perKg' ? 'Цена за кг' : 'Стоимость'}
+                  value={deliveryPriceInput}
+                  onChange={(e) => setDeliveryPriceInput(e.target.value)}
+                />
+              </div>
+              {deliveryTypeInput === 'perKg' && (
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Вес (кг)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={weightInput}
+                    onChange={(e) => setWeightInput(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn"
+                style={{ flex: 1 }}
+                onClick={savePrice}
+                disabled={savingPrice}
+              >
+                {savingPrice ? 'Сохранение…' : '✓ Сохранить'}
+              </button>
+              <button
+                className="btn secondary"
+                style={{ flex: 1 }}
+                onClick={() => setEditingPrice(false)}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="list-meta">
           <span className="hint">
@@ -256,7 +346,7 @@ export default function TrackerPage() {
             onOpenPhoto={(url, photos) => {
               setLightboxPhotos(photos.map(p => p.url));
               setLightboxIndex(photos.findIndex(p => p.url === url));
-              setLightboxSrc(url);
+              setZoomed(false);
             }}
             defaultOpen={i === 0}
           />
@@ -293,46 +383,62 @@ export default function TrackerPage() {
         </button>
       )}
 
+      {/* Improved Lightbox */}
       {lightboxSrc && (
         <div
           className="lightbox"
-          onClick={() => setLightboxSrc(null)}
-          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onClick={() => {
+            if (zoomed) setZoomed(false);
+            else { setLightboxIndex(null); setZoomed(false); }
+          }}
+          onTouchStart={(e) => {
+            touchStartX.current = e.touches[0].clientX;
+            touchStartY.current = e.touches[0].clientY;
+          }}
           onTouchMove={(e) => {
-            if (touchStartX.current === null || lightboxPhotos.length <= 1) return;
+            if (touchStartX.current === null || lightboxPhotos.length <= 1 || zoomed) return;
             const dx = e.touches[0].clientX - touchStartX.current;
-            if (Math.abs(dx) > 50) {
+            const dy = Math.abs(e.touches[0].clientY - (touchStartY.current || 0));
+            if (Math.abs(dx) > 50 && dy < 40) {
               if (dx < 0) {
-                const newIdx = (lightboxIndex + 1) % lightboxPhotos.length;
-                setLightboxIndex(newIdx);
-                setLightboxSrc(lightboxPhotos[newIdx]);
+                setLightboxIndex((i) => (i + 1) % lightboxPhotos.length);
               } else {
-                const newIdx = (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
-                setLightboxIndex(newIdx);
-                setLightboxSrc(lightboxPhotos[newIdx]);
+                setLightboxIndex((i) => (i - 1 + lightboxPhotos.length) % lightboxPhotos.length);
               }
+              setZoomed(false);
               touchStartX.current = null;
               haptic('light');
             }
           }}
-          onTouchEnd={() => { touchStartX.current = null; }}
+          onTouchEnd={() => {
+            touchStartX.current = null;
+            touchStartY.current = null;
+          }}
         >
+          {/* Close button */}
           <button
             className="lightbox-close"
-            onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
+            onClick={(e) => { e.stopPropagation(); setLightboxIndex(null); setZoomed(false); }}
           >
             ×
           </button>
+
+          {/* Counter */}
           {lightboxPhotos.length > 1 && (
+            <span className="lightbox-counter">
+              {lightboxIndex + 1} / {lightboxPhotos.length}
+            </span>
+          )}
+
+          {/* Nav arrows */}
+          {lightboxPhotos.length > 1 && !zoomed && (
             <>
-              <span className="lightbox-counter">{lightboxIndex + 1} / {lightboxPhotos.length}</span>
               <button
                 className="lightbox-nav prev"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const newIdx = (lightboxIndex - 1 + lightboxPhotos.length) % lightboxPhotos.length;
-                  setLightboxIndex(newIdx);
-                  setLightboxSrc(lightboxPhotos[newIdx]);
+                  setLightboxIndex((i) => (i - 1 + lightboxPhotos.length) % lightboxPhotos.length);
+                  setZoomed(false);
                 }}
               >
                 ‹
@@ -341,21 +447,46 @@ export default function TrackerPage() {
                 className="lightbox-nav next"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const newIdx = (lightboxIndex + 1) % lightboxPhotos.length;
-                  setLightboxIndex(newIdx);
-                  setLightboxSrc(lightboxPhotos[newIdx]);
+                  setLightboxIndex((i) => (i + 1) % lightboxPhotos.length);
+                  setZoomed(false);
                 }}
               >
                 ›
               </button>
             </>
           )}
-          <div className="lightbox-img-wrap" onClick={(e) => e.stopPropagation()}>
+
+          {/* Main image */}
+          <div
+            className={`lightbox-img-wrap ${zoomed ? 'zoomed' : ''}`}
+            onClick={(e) => { e.stopPropagation(); setZoomed((z) => !z); }}
+          >
             <AuthImg
+              key={lightboxSrc}
               src={lightboxSrc}
               alt=""
-              onClick={() => {}}
+              className="lightbox-img"
             />
+          </div>
+
+          {/* Thumbnail strip */}
+          {lightboxPhotos.length > 1 && (
+            <div className="lightbox-thumbs" onClick={(e) => e.stopPropagation()}>
+              {lightboxPhotos.map((url, i) => (
+                <div
+                  key={url}
+                  className={`lightbox-thumb ${i === lightboxIndex ? 'active' : ''}`}
+                  onClick={() => { setLightboxIndex(i); setZoomed(false); }}
+                >
+                  <AuthImg src={url} alt="" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Zoom hint */}
+          <div className="lightbox-hint">
+            {zoomed ? 'Нажмите для выхода из зума' : 'Нажмите на фото для зума'}
           </div>
         </div>
       )}
