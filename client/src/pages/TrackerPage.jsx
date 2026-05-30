@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { formatMoney } from '../lib/format.js';
@@ -6,7 +6,7 @@ import { haptic, showAlert } from '../lib/telegram.js';
 import { showToast } from '../lib/toast.js';
 import StageItem from '../components/StageItem.jsx';
 import { BackIcon, TrashIcon, EditIcon, PlusIcon } from '../components/Icons.jsx';
-import Lightbox from '../components/Lightbox.jsx';
+import AuthImg from '../components/AuthImg.jsx';
 
 const CURRENCIES = ['₽', '$', '€', '¥', '₸', '₴', '₺', 'kr'];
 
@@ -16,27 +16,38 @@ const makeStage = () => ({ _tmp: ++_tempId, title: '', description: '', complete
 export default function TrackerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [tracker, setTracker]       = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState('');
+  const [tracker, setTracker] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [lightboxPhotos, setLightboxPhotos] = useState([]);
+  const [deleting, setDeleting] = useState(false);
   const [codeRevealed, setCodeRevealed] = useState(false);
-  const [deleting, setDeleting]     = useState(false);
-  const [editing, setEditing]       = useState(false);
+  const [editing, setEditing] = useState(false);
 
-  // Lightbox
-  const [lbPhotos, setLbPhotos]   = useState([]);
-  const [lbIndex, setLbIndex]     = useState(null);
-
-  // Edit-mode fields
-  const [editTitle, setEditTitle]           = useState('');
-  const [editPrice, setEditPrice]           = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editPrice, setEditPrice] = useState('');
   const [editPriceCurrency, setEditPriceCurrency] = useState('₽');
   const [editDeliveryPrice, setEditDeliveryPrice] = useState('');
-  const [editDeliveryType, setEditDeliveryType]   = useState('total');
+  const [editDeliveryType, setEditDeliveryType] = useState('total');
   const [editDeliveryCurrency, setEditDeliveryCurrency] = useState('₽');
-  const [editWeight, setEditWeight]         = useState('');
-  const [editStages, setEditStages]         = useState([]);
-  const [savingEdit, setSavingEdit]         = useState(false);
+  const [editWeight, setEditWeight] = useState('');
+  const [editStages, setEditStages] = useState([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [zoomed, setZoomed] = useState(false);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+
+  // Zoom/pan state for lightbox
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const scaleRef = useRef(1);
+  const translateRef = useRef({ x: 0, y: 0 });
+  const lastTouchDist = useRef(null);
+  const lastTouchMid = useRef(null);
+  const lastPinchScale = useRef(1);
+  const imgRef = useRef(null);
 
   async function load() {
     try {
@@ -51,8 +62,26 @@ export default function TrackerPage() {
 
   useEffect(() => { load(); }, [id]);
 
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handler = (e) => {
+      if (e.key === 'ArrowLeft') {
+        setLightboxIndex((i) => (i - 1 + lightboxPhotos.length) % lightboxPhotos.length);
+        setZoomed(false);
+      } else if (e.key === 'ArrowRight') {
+        setLightboxIndex((i) => (i + 1) % lightboxPhotos.length);
+        setZoomed(false);
+      } else if (e.key === 'Escape') {
+        setLightboxIndex(null);
+        setZoomed(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxIndex, lightboxPhotos.length]);
+
   function openEdit() {
-    if (!tracker?.isOwner) return;
+    if (!tracker || !tracker.isOwner) return;
     setEditTitle(tracker.title || '');
     setEditPrice(tracker.price != null ? String(tracker.price) : '');
     setEditPriceCurrency(tracker.priceCurrency || '₽');
@@ -62,24 +91,36 @@ export default function TrackerPage() {
     setEditWeight(tracker.weight != null ? String(tracker.weight) : '');
     setEditStages((tracker.stages || []).map((s) => ({ ...s, _tmp: ++_tempId })));
     setEditing(true);
+    // Reset zoom when switching photos
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+    scaleRef.current = 1;
+    translateRef.current = { x: 0, y: 0 };
   }
 
-  function cancelEdit() { setEditing(false); }
+  function cancelEdit() {
+    setEditing(false);
+  }
 
   function updateEditStage(idx, patch) {
     setEditStages((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   }
+
   function removeEditStage(idx) {
     haptic('light');
     setEditStages((prev) => prev.filter((_, i) => i !== idx));
   }
+
   function addEditStage() {
     haptic('light');
     setEditStages((prev) => [...prev, makeStage()]);
   }
 
   async function saveEdit() {
-    if (!editTitle.trim()) { showAlert('Введите название трекера'); return; }
+    if (!editTitle.trim()) {
+      showAlert('Введите название трекера');
+      return;
+    }
     const validStages = editStages.filter((s) => s.title.trim());
     setSavingEdit(true);
     try {
@@ -113,22 +154,31 @@ export default function TrackerPage() {
     if (!stage) return;
     haptic('light');
     try {
-      setTracker(await api.toggleStage(id, stageId, !stage.completed));
-    } catch (e) { showAlert(e.message); }
+      const updated = await api.toggleStage(id, stageId, !stage.completed);
+      setTracker(updated);
+    } catch (e) {
+      showAlert(e.message);
+    }
   }
 
   async function handleAddPhoto(stageId, file) {
     haptic('light');
     try {
-      setTracker(await api.uploadPhoto(id, stageId, file));
-    } catch (e) { showAlert(e.message); }
+      const updated = await api.uploadPhoto(id, stageId, file);
+      setTracker(updated);
+    } catch (e) {
+      showAlert(e.message);
+    }
   }
 
   async function handleDeletePhoto(stageId, photoId) {
     haptic('light');
     try {
-      setTracker(await api.deletePhoto(id, stageId, photoId));
-    } catch (e) { showAlert(e.message); }
+      const updated = await api.deletePhoto(id, stageId, photoId);
+      setTracker(updated);
+    } catch (e) {
+      showAlert(e.message);
+    }
   }
 
   async function handleDelete() {
@@ -138,7 +188,10 @@ export default function TrackerPage() {
       await api.deleteTracker(id);
       haptic('medium');
       navigate('/', { replace: true });
-    } catch (e) { showAlert(e.message); setDeleting(false); }
+    } catch (e) {
+      showAlert(e.message);
+      setDeleting(false);
+    }
   }
 
   async function handleDisconnect() {
@@ -146,7 +199,9 @@ export default function TrackerPage() {
       await api.disconnect(id);
       haptic('medium');
       navigate('/');
-    } catch (e) { showAlert(e.message); }
+    } catch (e) {
+      showAlert(e.message);
+    }
   }
 
   if (loading) return <div className="spinner" />;
@@ -160,9 +215,10 @@ export default function TrackerPage() {
 
   if (!tracker) return null;
 
-  const stages    = tracker.stages || [];
+  const stages = tracker.stages || [];
   const doneCount = stages.filter((s) => s.completed).length;
-  const progress  = stages.length ? (doneCount / stages.length) * 100 : 0;
+  const progress = stages.length ? (doneCount / stages.length) * 100 : 0;
+  const lightboxSrc = lightboxIndex !== null ? lightboxPhotos[lightboxIndex] : null;
 
   return (
     <div className="page">
@@ -170,7 +226,7 @@ export default function TrackerPage() {
         <BackIcon /> Трекеры
       </button>
 
-      {/* ── EDIT MODE ── */}
+      {/* ===== EDIT MODE ===== */}
       {editing && (
         <div style={{ marginTop: 8 }}>
           <div className="field">
@@ -181,8 +237,7 @@ export default function TrackerPage() {
           <div className="field">
             <label>Цена товара</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="input" type="number" inputMode="decimal" placeholder="0"
-                value={editPrice} onChange={(e) => setEditPrice(e.target.value)} style={{ flex: 1 }} />
+              <input className="input" type="number" inputMode="decimal" placeholder="0" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} style={{ flex: 1 }} />
               <select className="input" value={editPriceCurrency} onChange={(e) => setEditPriceCurrency(e.target.value)} style={{ width: 72 }}>
                 {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -192,22 +247,17 @@ export default function TrackerPage() {
           <div className="field">
             <label>Стоимость доставки</label>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <button type="button" className={`chip ${editDeliveryType === 'total' ? 'active' : ''}`}
-                onClick={() => { haptic('light'); setEditDeliveryType('total'); }}>Итого</button>
-              <button type="button" className={`chip ${editDeliveryType === 'perKg' ? 'active' : ''}`}
-                onClick={() => { haptic('light'); setEditDeliveryType('perKg'); }}>За кг</button>
+              <button type="button" className={`chip ${editDeliveryType === 'total' ? 'active' : ''}`} onClick={() => { haptic('light'); setEditDeliveryType('total'); }}>Итого</button>
+              <button type="button" className={`chip ${editDeliveryType === 'perKg' ? 'active' : ''}`} onClick={() => { haptic('light'); setEditDeliveryType('perKg'); }}>За кг</button>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="input" type="number" inputMode="decimal"
-                placeholder={editDeliveryType === 'perKg' ? 'Цена за кг' : 'Стоимость'}
-                value={editDeliveryPrice} onChange={(e) => setEditDeliveryPrice(e.target.value)} style={{ flex: 1 }} />
+              <input className="input" type="number" inputMode="decimal" placeholder={editDeliveryType === 'perKg' ? 'Цена за кг' : 'Стоимость'} value={editDeliveryPrice} onChange={(e) => setEditDeliveryPrice(e.target.value)} style={{ flex: 1 }} />
               <select className="input" value={editDeliveryCurrency} onChange={(e) => setEditDeliveryCurrency(e.target.value)} style={{ width: 72 }}>
                 {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             {editDeliveryType === 'perKg' && (
-              <input className="input" type="number" inputMode="decimal" placeholder="Вес (кг)"
-                value={editWeight} onChange={(e) => setEditWeight(e.target.value)} style={{ marginTop: 8 }} />
+              <input className="input" type="number" inputMode="decimal" placeholder="Вес (кг)" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} style={{ marginTop: 8 }} />
             )}
           </div>
 
@@ -223,13 +273,10 @@ export default function TrackerPage() {
                 )}
               </div>
               <div className="field">
-                <input className="input" placeholder="Название этапа"
-                  value={s.title} onChange={(e) => updateEditStage(idx, { title: e.target.value })} />
+                <input className="input" placeholder="Название этапа" value={s.title} onChange={(e) => updateEditStage(idx, { title: e.target.value })} />
               </div>
               <div className="field" style={{ marginBottom: 0 }}>
-                <textarea className="textarea" placeholder="Описание (опц.)"
-                  value={s.description} onChange={(e) => updateEditStage(idx, { description: e.target.value })}
-                  style={{ minHeight: 50 }} />
+                <textarea className="textarea" placeholder="Описание (опц.)" value={s.description} onChange={(e) => updateEditStage(idx, { description: e.target.value })} style={{ minHeight: 50 }} />
               </div>
             </div>
           ))}
@@ -242,12 +289,14 @@ export default function TrackerPage() {
             <button className="btn" style={{ flex: 1 }} onClick={saveEdit} disabled={savingEdit}>
               {savingEdit ? 'Сохранение…' : '✓ Сохранить'}
             </button>
-            <button className="btn secondary" style={{ flex: 1 }} onClick={cancelEdit}>Отмена</button>
+            <button className="btn secondary" style={{ flex: 1 }} onClick={cancelEdit}>
+              Отмена
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── VIEW MODE ── */}
+      {/* ===== VIEW MODE ===== */}
       {!editing && (
         <div>
           <div className="card" style={{ marginTop: 8 }}>
@@ -275,10 +324,13 @@ export default function TrackerPage() {
                   </span>
                 </div>
               )}
-              {(tracker.price > 0 || tracker.deliveryPrice > 0) && (
+              {(tracker.price > 0 || (tracker.deliveryPrice > 0)) && (
                 <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6, display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
                   <span>Итого:</span>
-                  <span>{((tracker.price || 0) + (tracker.deliveryPrice || 0)).toLocaleString('ru-RU')} {tracker.priceCurrency || '₽'}</span>
+                  <span>
+                    {((tracker.price || 0) + (tracker.deliveryPrice || 0)).toLocaleString('ru-RU')} {tracker.priceCurrency || '₽'}
+                    {tracker.deliveryPriceType === 'perKg' && tracker.weight ? ` (${tracker.deliveryPrice} × ${tracker.weight})` : ''}
+                  </span>
                 </div>
               )}
             </div>
@@ -287,8 +339,14 @@ export default function TrackerPage() {
               <span className="hint">{doneCount} / {stages.length} этапов</span>
               {tracker.isOwner && (
                 <span className="code-pill-wrap">
-                  <span className={`code-pill hidden ${codeRevealed ? 'revealed' : ''}`}
-                    onClick={() => { setCodeRevealed(true); navigator.clipboard.writeText(tracker.code); haptic('light'); showToast('Скопировано'); }}
+                  <span
+                    className={`code-pill hidden ${codeRevealed ? 'revealed' : ''}`}
+                    onClick={() => {
+                      setCodeRevealed(true);
+                      navigator.clipboard.writeText(tracker.code);
+                      haptic('light');
+                      showToast('Скопировано');
+                    }}
                   >{tracker.code}</span>
                 </span>
               )}
@@ -320,8 +378,9 @@ export default function TrackerPage() {
               onAddPhoto={handleAddPhoto}
               onDeletePhoto={handleDeletePhoto}
               onOpenPhoto={(url, photos) => {
-                setLbPhotos(photos.map(p => p.url));
-                setLbIndex(photos.findIndex(p => p.url === url));
+                setLightboxPhotos(photos.map(p => p.url));
+                setLightboxIndex(photos.findIndex(p => p.url === url));
+                setZoomed(false);
               }}
               defaultOpen={i === 0}
             />
@@ -334,7 +393,12 @@ export default function TrackerPage() {
               <p className="hint" style={{ marginBottom: 12 }}>
                 Код: <span className="code-pill-wrap">
                   <span className={`code-pill hidden ${codeRevealed ? 'revealed' : ''}`}
-                    onClick={() => { setCodeRevealed(true); navigator.clipboard.writeText(tracker.code); haptic('light'); showToast('Скопировано'); }}
+                    onClick={() => {
+                      setCodeRevealed(true);
+                      navigator.clipboard.writeText(tracker.code);
+                      haptic('light');
+                      showToast('Скопировано');
+                    }}
                   >{tracker.code}</span>
                 </span> — поделитесь с кем угодно
               </p>
@@ -350,14 +414,138 @@ export default function TrackerPage() {
         </div>
       )}
 
-      {/* ── LIGHTBOX ── */}
-      {lbIndex !== null && (
-        <Lightbox
-          photos={lbPhotos}
-          index={lbIndex}
-          onClose={() => { setLbIndex(null); setLbPhotos([]); }}
-          onChange={(i) => setLbIndex(i)}
-        />
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <div
+          className="lightbox"
+          onClick={() => {
+            if (scaleRef.current > 1) {
+              setScale(1); setTranslate({ x: 0, y: 0 });
+              scaleRef.current = 1; translateRef.current = { x: 0, y: 0 };
+            } else {
+              setLightboxIndex(null);
+              setLightboxPhotos([]);
+            }
+          }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              lastTouchDist.current = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+              );
+              lastTouchMid.current = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+              };
+              lastPinchScale.current = scaleRef.current;
+              touchStartX.current = null;
+            } else if (e.touches.length === 1) {
+              touchStartX.current = e.touches[0].clientX;
+              touchStartY.current = e.touches[0].clientY;
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2 && lastTouchDist.current !== null) {
+              const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+              );
+              const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+              const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+              let newScale = lastPinchScale.current * (dist / lastTouchDist.current);
+              newScale = Math.min(Math.max(newScale, 0.5), 5);
+              scaleRef.current = newScale;
+              setScale(newScale);
+
+              if (lastTouchMid.current && imgRef.current) {
+                const dx = midX - lastTouchMid.current.x;
+                const dy = midY - lastTouchMid.current.y;
+                const newX = translateRef.current.x + dx;
+                const newY = translateRef.current.y + dy;
+                translateRef.current = { x: newX, y: newY };
+                setTranslate({ x: newX, y: newY });
+                lastTouchMid.current = { x: midX, y: midY };
+              }
+
+              e.preventDefault();
+            } else if (e.touches.length === 1 && scaleRef.current > 1 && touchStartX.current !== null) {
+              const dx = e.touches[0].clientX - touchStartX.current;
+              const dy = (e.touches[0].clientY - (touchStartY.current || 0));
+              if (Math.abs(dx) > 5) {
+                const newX = translateRef.current.x + dx;
+                const newY = translateRef.current.y + dy;
+                translateRef.current = { x: newX, y: newY };
+                setTranslate({ x: newX, y: newY });
+                touchStartX.current = e.touches[0].clientX;
+                touchStartY.current = e.touches[0].clientY;
+              }
+              e.preventDefault();
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (e.touches.length < 2) {
+              lastTouchDist.current = null;
+              lastTouchMid.current = null;
+            }
+            if (e.touches.length < 1) {
+              touchStartX.current = null;
+              touchStartY.current = null;
+            }
+          }}
+        >
+          <button className="lightbox-close" onClick={(e) => { e.stopPropagation(); setLightboxIndex(null); setLightboxPhotos([]); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}>×</button>
+          {lightboxPhotos.length > 1 && (
+            <span className="lightbox-counter">{lightboxIndex + 1} / {lightboxPhotos.length}</span>
+          )}
+          {lightboxPhotos.length > 1 && scaleRef.current <= 1 && (
+            <>
+              <button className="lightbox-nav prev" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i - 1 + lightboxPhotos.length) % lightboxPhotos.length); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}>‹</button>
+              <button className="lightbox-nav next" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i + 1) % lightboxPhotos.length); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}>›</button>
+            </>
+          )}
+          <div
+            className="lightbox-img-wrap"
+            style={{ cursor: scaleRef.current > 1 ? 'grab' : 'zoom-in', overflow: 'hidden' }}
+            ref={imgRef}
+            onClick={(e) => { e.stopPropagation(); if (scaleRef.current > 1) { setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; } }}
+          >
+            <AuthImg
+              key={lightboxSrc + scaleRef.current}
+              src={lightboxSrc}
+              alt=""
+              className="lightbox-img"
+              style={{
+                transform: `scale(${scale}) translate(${translate.x / scale}px, ${translate.y / scale}px)`,
+                transformOrigin: 'center center',
+                transition: scaleRef.current > 1 ? 'none' : 'transform 0.2s ease',
+                pointerEvents: 'none',
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+              }}
+            />
+          </div>
+          {lightboxPhotos.length > 1 && (
+            <div className="lightbox-thumbs" onClick={(e) => e.stopPropagation()}>
+              {lightboxPhotos.map((url, i) => (
+                <div
+                  key={url}
+                  className={`lightbox-thumb ${i === lightboxIndex ? 'active' : ''}`}
+                  onClick={() => { setLightboxIndex(i); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}
+                >
+                  <AuthImg src={url} alt="" />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="lightbox-hint">
+            {scaleRef.current > 1
+              ? `Масштаб ${scaleRef.current.toFixed(1)}× — коснитесь для сброса`
+              : 'Сведите пальцы для увеличения'}
+          </div>
+        </div>
       )}
     </div>
   );
