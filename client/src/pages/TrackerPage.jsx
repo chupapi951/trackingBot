@@ -39,6 +39,16 @@ export default function TrackerPage() {
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
+  // Zoom/pan state for lightbox
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const scaleRef = useRef(1);
+  const translateRef = useRef({ x: 0, y: 0 });
+  const lastTouchDist = useRef(null);
+  const lastTouchMid = useRef(null);
+  const lastPinchScale = useRef(1);
+  const imgRef = useRef(null);
+
   async function load() {
     try {
       const res = await api.getTracker(id);
@@ -81,6 +91,11 @@ export default function TrackerPage() {
     setEditWeight(tracker.weight != null ? String(tracker.weight) : '');
     setEditStages((tracker.stages || []).map((s) => ({ ...s, _tmp: ++_tempId })));
     setEditing(true);
+    // Reset zoom when switching photos
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+    scaleRef.current = 1;
+    translateRef.current = { x: 0, y: 0 };
   }
 
   function cancelEdit() {
@@ -403,37 +418,114 @@ export default function TrackerPage() {
       {lightboxSrc && (
         <div
           className="lightbox"
-          onClick={() => zoomed ? setZoomed(false) : setLightboxIndex(null)}
-          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; }}
-          onTouchMove={(e) => {
-            if (touchStartX.current === null || lightboxPhotos.length <= 1 || zoomed) return;
-            const dx = e.touches[0].clientX - touchStartX.current;
-            const dy = Math.abs(e.touches[0].clientY - (touchStartY.current || 0));
-            if (Math.abs(dx) > 50 && dy < 40) {
-              setLightboxIndex((i) => dx < 0 ? (i + 1) % lightboxPhotos.length : (i - 1 + lightboxPhotos.length) % lightboxPhotos.length);
-              setZoomed(false);
-              touchStartX.current = null;
-              haptic('light');
+          onClick={() => {
+            if (scaleRef.current > 1) {
+              setScale(1); setTranslate({ x: 0, y: 0 });
+              scaleRef.current = 1; translateRef.current = { x: 0, y: 0 };
+            } else {
+              setLightboxIndex(null);
+              setLightboxPhotos([]);
             }
           }}
-          onTouchEnd={() => { touchStartX.current = null; touchStartY.current = null; }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              lastTouchDist.current = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+              );
+              lastTouchMid.current = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+              };
+              lastPinchScale.current = scaleRef.current;
+              touchStartX.current = null;
+            } else if (e.touches.length === 1) {
+              touchStartX.current = e.touches[0].clientX;
+              touchStartY.current = e.touches[0].clientY;
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2 && lastTouchDist.current !== null) {
+              const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+              );
+              const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+              const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+              let newScale = lastPinchScale.current * (dist / lastTouchDist.current);
+              newScale = Math.min(Math.max(newScale, 0.5), 5);
+              scaleRef.current = newScale;
+              setScale(newScale);
+
+              if (lastTouchMid.current && imgRef.current) {
+                const dx = midX - lastTouchMid.current.x;
+                const dy = midY - lastTouchMid.current.y;
+                const newX = translateRef.current.x + dx;
+                const newY = translateRef.current.y + dy;
+                translateRef.current = { x: newX, y: newY };
+                setTranslate({ x: newX, y: newY });
+                lastTouchMid.current = { x: midX, y: midY };
+              }
+
+              e.preventDefault();
+            } else if (e.touches.length === 1 && scaleRef.current > 1 && touchStartX.current !== null) {
+              const dx = e.touches[0].clientX - touchStartX.current;
+              const dy = (e.touches[0].clientY - (touchStartY.current || 0));
+              if (Math.abs(dx) > 5) {
+                const newX = translateRef.current.x + dx;
+                const newY = translateRef.current.y + dy;
+                translateRef.current = { x: newX, y: newY };
+                setTranslate({ x: newX, y: newY });
+                touchStartX.current = e.touches[0].clientX;
+                touchStartY.current = e.touches[0].clientY;
+              }
+              e.preventDefault();
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (e.touches.length < 2) {
+              lastTouchDist.current = null;
+              lastTouchMid.current = null;
+            }
+            if (e.touches.length < 1) {
+              touchStartX.current = null;
+              touchStartY.current = null;
+            }
+          }}
         >
-          <button className="lightbox-close" onClick={(e) => { e.stopPropagation(); setLightboxIndex(null); setZoomed(false); }}>×</button>
+          <button className="lightbox-close" onClick={(e) => { e.stopPropagation(); setLightboxIndex(null); setLightboxPhotos([]); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}>×</button>
           {lightboxPhotos.length > 1 && (
             <span className="lightbox-counter">{lightboxIndex + 1} / {lightboxPhotos.length}</span>
           )}
-          {lightboxPhotos.length > 1 && !zoomed && (
+          {lightboxPhotos.length > 1 && scaleRef.current <= 1 && (
             <>
-              <button className="lightbox-nav prev" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i - 1 + lightboxPhotos.length) % lightboxPhotos.length); setZoomed(false); }}>‹</button>
-              <button className="lightbox-nav next" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i + 1) % lightboxPhotos.length); setZoomed(false); }}>›</button>
+              <button className="lightbox-nav prev" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i - 1 + lightboxPhotos.length) % lightboxPhotos.length); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}>‹</button>
+              <button className="lightbox-nav next" onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i + 1) % lightboxPhotos.length); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}>›</button>
             </>
           )}
           <div
-            className={`lightbox-img-wrap ${zoomed ? 'zoomed' : ''}`}
-            style={{ cursor: zoomed ? 'zoom-out' : 'zoom-in' }}
-            onClick={(e) => { e.stopPropagation(); setZoomed((z) => !z); }}
+            className="lightbox-img-wrap"
+            style={{ cursor: scaleRef.current > 1 ? 'grab' : 'zoom-in', overflow: 'hidden' }}
+            ref={imgRef}
+            onClick={(e) => { e.stopPropagation(); if (scaleRef.current > 1) { setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; } }}
           >
-            <AuthImg key={lightboxSrc} src={lightboxSrc} alt="" className="lightbox-img" />
+            <AuthImg
+              key={lightboxSrc + scaleRef.current}
+              src={lightboxSrc}
+              alt=""
+              className="lightbox-img"
+              style={{
+                transform: `scale(${scale}) translate(${translate.x / scale}px, ${translate.y / scale}px)`,
+                transformOrigin: 'center center',
+                transition: scaleRef.current > 1 ? 'none' : 'transform 0.2s ease',
+                pointerEvents: 'none',
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+              }}
+            />
           </div>
           {lightboxPhotos.length > 1 && (
             <div className="lightbox-thumbs" onClick={(e) => e.stopPropagation()}>
@@ -441,14 +533,18 @@ export default function TrackerPage() {
                 <div
                   key={url}
                   className={`lightbox-thumb ${i === lightboxIndex ? 'active' : ''}`}
-                  onClick={() => { setLightboxIndex(i); setZoomed(false); }}
+                  onClick={() => { setLightboxIndex(i); setScale(1); setTranslate({ x: 0, y: 0 }); scaleRef.current = 1; translateRef.current = { x: 0, y: 0 }; }}
                 >
                   <AuthImg src={url} alt="" />
                 </div>
               ))}
             </div>
           )}
-          <div className="lightbox-hint">{zoomed ? 'Нажмите для выхода из зума' : 'Нажмите на фото для зума'}</div>
+          <div className="lightbox-hint">
+            {scaleRef.current > 1
+              ? `Масштаб ${scaleRef.current.toFixed(1)}× — коснитесь для сброса`
+              : 'Сведите пальцы для увеличения'}
+          </div>
         </div>
       )}
     </div>
