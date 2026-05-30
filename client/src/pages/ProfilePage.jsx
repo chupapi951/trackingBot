@@ -8,7 +8,6 @@ import Analytics from '../components/Analytics.jsx';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { theme, isDark, toggleTheme } = useThemeContext();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
@@ -32,6 +31,7 @@ export default function ProfilePage() {
   if (!data) return <div className="spinner" />;
 
   const { user, stats } = data;
+  const initials = (user.displayName || 'U').trim().charAt(0).toUpperCase();
 
   return (
     <div className="page">
