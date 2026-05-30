@@ -1,23 +1,21 @@
-// Thin wrapper around the Telegram WebApp SDK with safe fallbacks for
-// local development outside of Telegram.
+import { init, miniApp, viewport, themeParams, initData, hapticFeedback, popup, on, isTMA } from '@telegram-apps/sdk';
 
-export const tg = window.Telegram?.WebApp;
+let initialized = false;
 
 export function initTelegram() {
-  if (!tg) return;
+  if (initialized) return;
   try {
-    tg.ready();
-    tg.expand();
-    // Apply Telegram theme to CSS variables when available
-    applyTheme();
-    tg.onEvent?.('themeChanged', applyTheme);
+    init();
+    viewport.expand();
+    miniApp.ready();
+    initialized = true;
   } catch (e) {
     /* noop */
   }
 }
 
-function applyTheme() {
-  const p = tg?.themeParams;
+export function applyTheme() {
+  const p = themeParams.state;
   if (!p) return;
   const root = document.documentElement;
   const map = {
@@ -34,11 +32,13 @@ function applyTheme() {
   });
 }
 
+on('theme_changed', applyTheme);
+
 export function getInitData() {
-  return tg?.initData || '';
+  if (!isTMA()) return '';
+  return initData.raw() || '';
 }
 
-// In development, return a stable fake telegram id so the dev-auth path works.
 export function getDevUserId() {
   let id = localStorage.getItem('dev-user-id');
   if (!id) {
@@ -49,18 +49,27 @@ export function getDevUserId() {
 }
 
 export function getTelegramUser() {
-  return tg?.initDataUnsafe?.user || null;
+  if (!isTMA()) return null;
+  return initData.user() || null;
 }
 
 export function haptic(type = 'light') {
   try {
-    tg?.HapticFeedback?.impactOccurred?.(type);
+    const style = type === 'light' ? 'light' : type === 'medium' ? 'medium' : 'heavy';
+    hapticFeedback.impactOccurred(style);
   } catch {
     /* noop */
   }
 }
 
 export function showAlert(message) {
-  if (tg?.showAlert) tg.showAlert(message);
-  else window.alert(message);
+  try {
+    if (isTMA()) {
+      popup.show({ message });
+    } else {
+      window.alert(message);
+    }
+  } catch {
+    window.alert(message);
+  }
 }
