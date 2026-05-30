@@ -163,18 +163,16 @@ export default function CreateTrackerPage() {
       <button className="back-btn" onClick={() => navigate(-1)}>
         <BackIcon /> Назад
       </button>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Новый трекер</h1>
-        <button
-          className="btn small secondary"
-          style={{ width: 'auto' }}
-          onClick={() => setShowTemplates(true)}
-        >
-          Шаблоны
-        </button>
-      </div>
+      <h1 className="page-title" style={{ margin: '8px 0 12px' }}>Новый трекер</h1>
+      <button
+        className="btn"
+        style={{ marginBottom: 12 }}
+        onClick={() => setShowTemplates(true)}
+      >
+        📋 Шаблоны
+      </button>
 
-      <div className="field" style={{ marginTop: 16 }}>
+      <div className="field">
         <label>Название</label>
         <input
           className="input"

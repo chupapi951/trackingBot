@@ -5,7 +5,7 @@ import { formatMoney } from '../lib/format.js';
 import { haptic, showAlert } from '../lib/telegram.js';
 import { showToast } from '../lib/toast.js';
 import StageItem from '../components/StageItem.jsx';
-import { BackIcon, TrashIcon, PlusIcon } from '../components/Icons.jsx';
+import { BackIcon, TrashIcon, EditIcon, PlusIcon } from '../components/Icons.jsx';
 import AuthImg from '../components/AuthImg.jsx';
 
 const CURRENCIES = ['₽', '$', '€', '¥', '₸', '₴', '₺', 'kr'];
@@ -289,7 +289,7 @@ export default function TrackerPage() {
               <strong style={{ fontSize: 17 }}>{tracker.title}</strong>
               {tracker.isOwner && (
                 <button className="back-btn" style={{ margin: 0, fontSize: 14 }} onClick={openEdit}>
-                  ✏️ ред.
+                  <EditIcon /> ред.
                 </button>
               )}
             </div>

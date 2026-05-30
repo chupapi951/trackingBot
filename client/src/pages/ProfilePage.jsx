@@ -4,7 +4,6 @@ import { api } from '../lib/api.js';
 import { formatMoney } from '../lib/format.js';
 import { haptic } from '../lib/telegram.js';
 import { PlusIcon } from '../components/Icons.jsx';
-import { useThemeContext } from '../App.jsx';
 import Analytics from '../components/Analytics.jsx';
 
 export default function ProfilePage() {
@@ -33,7 +32,6 @@ export default function ProfilePage() {
   if (!data) return <div className="spinner" />;
 
   const { user, stats } = data;
-  const initials = (user.displayName || 'U').trim().charAt(0).toUpperCase();
 
   return (
     <div className="page">
@@ -67,20 +65,6 @@ export default function ProfilePage() {
 
       <div className="section-label">Настройки</div>
       <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontWeight: 600 }}>Тёмная тема</span>
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={isDark}
-            onChange={() => {
-              haptic('light');
-              toggleTheme();
-            }}
-          />
-          <span className="toggle-slider" />
-        </label>
-      </div>
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
         <span style={{ fontWeight: 600 }}>Уведомления</span>
         <label className="toggle">
           <input
