@@ -1,21 +1,23 @@
-import { init, miniApp, viewport, themeParams, initData, hapticFeedback, popup, on, isTMA } from '@telegram-apps/sdk';
+// Thin wrapper around the Telegram WebApp SDK with safe fallbacks for
+// local development outside of Telegram.
 
-let initialized = false;
+export const tg = window.Telegram?.WebApp;
 
 export function initTelegram() {
-  if (initialized) return;
+  if (!tg) return;
   try {
-    init();
-    viewport.expand();
-    miniApp.ready();
-    initialized = true;
+    tg.ready();
+    tg.expand();
+    // Apply Telegram theme to CSS variables when available
+    applyTheme();
+    tg.onEvent?.('themeChanged', applyTheme);
   } catch (e) {
     /* noop */
   }
 }
 
-export function applyTheme() {
-  const p = themeParams.state;
+function applyTheme() {
+  const p = tg?.themeParams;
   if (!p) return;
   const root = document.documentElement;
   const map = {
@@ -32,13 +34,11 @@ export function applyTheme() {
   });
 }
 
-on('theme_changed', applyTheme);
-
 export function getInitData() {
-  if (!isTMA()) return '';
-  return initData.raw() || '';
+  return tg?.initData || '';
 }
 
+// In development, return a stable fake telegram id so the dev-auth path works.
 export function getDevUserId() {
   let id = localStorage.getItem('dev-user-id');
   if (!id) {
@@ -49,27 +49,18 @@ export function getDevUserId() {
 }
 
 export function getTelegramUser() {
-  if (!isTMA()) return null;
-  return initData.user() || null;
+  return tg?.initDataUnsafe?.user || null;
 }
 
 export function haptic(type = 'light') {
   try {
-    const style = type === 'light' ? 'light' : type === 'medium' ? 'medium' : 'heavy';
-    hapticFeedback.impactOccurred(style);
+    tg?.HapticFeedback?.impactOccurred?.(type);
   } catch {
     /* noop */
   }
 }
 
 export function showAlert(message) {
-  try {
-    if (isTMA()) {
-      popup.show({ message });
-    } else {
-      window.alert(message);
-    }
-  } catch {
-    window.alert(message);
-  }
+  if (tg?.showAlert) tg.showAlert(message);
+  else window.alert(message);
 }
