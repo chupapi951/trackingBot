@@ -14,7 +14,6 @@ router.get('/', async (req, res) => {
   const user = req.user;
 
   const owned = await Tracker.find({ owner: user._id });
-  const owned = await Tracker.find({ owner: user._id });
   const followedCount = owned.reduce((acc, t) => {
     return acc + t.followers.filter((f) => f.toString() !== user._id.toString()).length;
   }, 0);
