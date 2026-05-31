@@ -15,8 +15,8 @@ router.get('/', async (req, res) => {
 
   const owned = await Tracker.find({ owner: user._id });
   const followed = await Tracker.find({
-    followers: user._id,
-    owner: { $ne: user._id },
+    owner: user._id,
+    $expr: { $gt: [{ $size: '$followers' }, 0] },
   });
 
   let totalStages = 0;
