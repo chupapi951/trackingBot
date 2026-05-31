@@ -12,10 +12,11 @@ router.use(rateLimit({ windowMs: 60000, max: 60 }));
  */
 router.get('/', async (req, res) => {
   const user = req.user;
+  const userId = user._id.toString();
 
   const owned = await Tracker.find({ owner: user._id });
   const followedCount = owned.reduce((acc, t) => {
-    return acc + t.followers.filter((f) => f.toString() !== user._id.toString()).length;
+    return acc + t.followers.filter((f) => f._id ? f._id.toString() !== userId : f.toString() !== userId).length;
   }, 0);
 
   let totalStages = 0;
