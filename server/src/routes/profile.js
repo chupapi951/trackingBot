@@ -12,13 +12,16 @@ router.use(rateLimit({ windowMs: 60000, max: 60 }));
  */
 router.get('/', async (req, res) => {
   const user = req.user;
+  const userId = user._id.toString();
 
   const owned = await Tracker.find({ owner: user._id });
   const ownedIds = owned.map(t => t._id);
-  const followedCount = await Tracker.countDocuments({
-    followers: user._id,
-    _id: { $nin: ownedIds },
-  });
+
+  const query = { followers: user._id };
+  if (ownedIds.length > 0) {
+    query._id = { $nin: ownedIds };
+  }
+  const followedCount = await Tracker.countDocuments(query);
 
   let totalStages = 0;
   let completedStages = 0;
