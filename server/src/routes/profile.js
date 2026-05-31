@@ -14,9 +14,9 @@ router.get('/', async (req, res) => {
   const user = req.user;
 
   const owned = await Tracker.find({ owner: user._id });
-  const followedCount = owned.reduce((acc, t) => {
-    return acc + t.followers.filter((f) => f.toString() !== user._id.toString()).length;
-  }, 0);
+  const connectedTrackerIds = user.connectedTrackers || [];
+  const connectedTrackers = await Tracker.find({ _id: { $in: connectedTrackerIds } });
+  const followedCount = connectedTrackers.filter(t => String(t.owner) !== String(user._id)).length;
 
   let totalStages = 0;
   let completedStages = 0;
