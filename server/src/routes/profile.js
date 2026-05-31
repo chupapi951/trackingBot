@@ -14,10 +14,10 @@ router.get('/', async (req, res) => {
   const user = req.user;
 
   const owned = await Tracker.find({ owner: user._id });
-  const followed = await Tracker.find({
-    owner: user._id,
-    $expr: { $gt: [{ $size: '$followers' }, 0] },
-  });
+  const owned = await Tracker.find({ owner: user._id });
+  const followedCount = owned.reduce((acc, t) => {
+    return acc + t.followers.filter((f) => f.toString() !== user._id.toString()).length;
+  }, 0);
 
   let totalStages = 0;
   let completedStages = 0;
@@ -45,7 +45,7 @@ router.get('/', async (req, res) => {
     },
     stats: {
       ownedCount: owned.length,
-      followedCount: followed.length,
+      followedCount,
       totalStages,
       completedStages,
       totalPhotos,
